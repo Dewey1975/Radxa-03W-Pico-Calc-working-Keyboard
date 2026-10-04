@@ -2,6 +2,8 @@
 
 ## Fully working display and keyboard with the Michael Mayer ZeroCalc adapter
 
+> **Update:** after the display and keyboard work, you may hit a desktop crash, DMA errors, or a black screen on X11. See the [addendum on getting a usable desktop on the 320x320 panel](ADDENDUM-desktop-and-display.md).
+
 This guide documents a working ClockworkPi PicoCalc build using:
 
 - a Radxa Zero 3W (2 GB model in the verified build);
@@ -642,7 +644,3 @@ Working operation:      separate one-byte send, STOP, separate two-byte receive
 Permanent overlay:      picocalc-kbd-i2c3
 Required reset:         complete cold power cycle for first verification/recovery
 ```
-
----
-
-See also: [Addendum: getting a usable desktop on the 320x320 panel](ADDENDUM-desktop-and-display.md) (GNOME crash, DMA errors, black screen on X11, i3 and XFCE).
