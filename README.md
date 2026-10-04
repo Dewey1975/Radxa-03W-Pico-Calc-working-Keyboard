@@ -642,3 +642,7 @@ Working operation:      separate one-byte send, STOP, separate two-byte receive
 Permanent overlay:      picocalc-kbd-i2c3
 Required reset:         complete cold power cycle for first verification/recovery
 ```
+
+---
+
+See also: [Addendum: getting a usable desktop on the 320x320 panel](ADDENDUM-desktop-and-display.md) (GNOME crash, DMA errors, black screen on X11, i3 and XFCE).
