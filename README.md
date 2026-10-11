@@ -1,6 +1,6 @@
 # Radxa Zero 3W in a ClockworkPi PicoCalc
 
-## Fully working display and keyboard with the Michael Mayer ZeroCalc adapter
+## Working display and keyboard with the Michael Mayer ZeroCalc adapter, plus desktop and screen-size fixes
 
 > **Update:** after the display and keyboard work, you may hit a desktop crash, DMA errors, or a black screen on X11. See the [addendum on getting a usable desktop on the 320x320 panel](ADDENDUM-desktop-and-display.md).
 
