@@ -27,7 +27,9 @@ Everything below is labeled **Verified** (we saw it work or fail on the real har
 | Kernel log flooded with `dma-pl330 ... Bad Desc` | **Verified** workaround: disable DMA on the panel's SPI bus (`spi3-nodma` overlay). Did **not** fix the GNOME crash. |
 | i3 starts but the panel stays black | **Verified** fix: an Xorg config file pointing X at the panel device. |
 | i3 is hard to use without memorizing keys | Subjective. Works, but minimal. |
-| XFCE | **Verified** working on the panel with the Xorg config. Resolution and sizing tweaks still pending. |
+| XFCE | **Verified** working on the panel with the Xorg config. |
+| The Raspberry Pi "set 640x640 and let it shrink" trick | **Verified** it does not work with this setup (section 8). |
+| Making the XFCE interface smaller | **Verified** workaround: lower the DPI (section 8). A wider canvas for apps is still unsolved. |
 
 ## 1. Check what the system sees first
 
@@ -183,7 +185,7 @@ If a blue screen asks which display manager to use, choose **gdm3** (the one alr
 
 On the login screen, choose **Xfce Session**, **not** the Wayland variant. The Xorg config from section 4 only applies to X11, and the Wayland variant would likely give a black screen again (**Untested**, but consistent with everything above).
 
-**Result** (**Verified**): XFCE shows a normal panel, menu, and clickable icons on the 320x320 screen, and the keyboard works. Fine-tuning of font and icon sizes was still to be done when this was written. We also had not yet tried a web browser or a full set of emulators on it.
+**Result** (**Verified**): XFCE shows a normal panel, menu, and clickable icons on the 320x320 screen, and the keyboard works. Making everything fit is covered in section 8. We had not yet tried a web browser or a full set of emulators on it.
 
 ## 6. Smaller things we hit
 
@@ -203,7 +205,74 @@ On the login screen, choose **Xfce Session**, **not** the Wayland variant. The X
 3. Add `spi3-nodma` (section 3) if `dmesg` is flooded with `Bad Desc`.
 4. Skip GNOME's apps grid. Install XFCE (section 5).
 5. Add `20-picocalc.conf` (section 4) **before** logging in to any X11 session, so you don't see a black screen.
-6. Keep a backup image of the card once everything works.
+6. Lower XFCE's DPI so the interface fits the panel (section 8).
+7. Keep a backup image of the card once everything works.
+
+## 8. Making things fit: the 640x640 trick does not work here, lowering DPI does
+
+On a Raspberry Pi, setting a 640x640 resolution in `raspi-config` works because the Pi's firmware scales the picture down to the panel. Nothing equivalent exists in this setup.
+
+**What we tried** (**Verified** that it fails):
+
+```
+DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority xrandr --output Unknown19-1 --mode 320x320 --scale 2x2
+```
+
+It printed:
+
+```
+xrandr: screen cannot be larger than 320x320 (desired size 640x640)
+```
+
+With `20-picocalc.conf` (section 4), X draws straight onto the panel device, and that device only allows a screen up to 320x320. So `--scale` cannot make a larger canvas. We did not test removing `20-picocalc.conf` to see whether scaling would then work, because without it the panel stayed black.
+
+**What worked** (**Verified**): lower XFCE's DPI so text, menus and the panel shrink.
+
+```
+DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus xfconf-query -c xsettings -p /Xft/DPI -n -t int -s 60
+```
+
+XFCE saves this by itself. We confirmed the file contains the setting:
+
+```
+grep -i dpi ~/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml
+```
+
+```
+<property name="DPI" type="int" value="60"/>
+```
+
+Programs that are already open may not change until you reopen them. Change the number to taste. To go back to the default, run the same command with `-r` in place of `-n -t int -s 60`.
+
+**What is still unsolved** (**Untested** ideas, not recommendations): this makes the interface smaller but gives programs the same 320-pixel-wide canvas. A browser may still feel cramped. Possible directions we have not tried are a Wayland compositor that allows scales below 1 (for example sway with `output scale 0.5`, rendering on the main GPU and copying to the panel), or a nested or virtual X server shrunk onto the panel. If you try one of these, please report what happens.
+
+## 9. Hardware notes: cover glass, case back, and cooling
+
+These came from a real build and are not tested on other hardware.
+
+**Cover glass**
+
+- The original glass has the PicoCalc logo and a light hole, so a plain replacement sheet will not have them.
+- A cheaper approach is a sacrificial clear cover (thin acrylic or PET sheet) over the original glass. Use thin double-sided tape on the border only, and check that the case still closes.
+- For acrylic: about 1 mm thick, cast (not extruded), cleaned with mild soap and water. Avoid ammonia cleaners. Acrylic can be laser cut cleanly. Polycarbonate melts and yellows under a laser, so it needs a saw or CNC.
+- If a cut-to-size quote is expensive, ordering spare glass pieces from the PicoCalc seller can be cheaper.
+
+**Case back**
+
+- In our build the Radxa and adapter almost fit, but pressing the back down pushed the board slightly out of place, and it came loose when jiggled.
+- Planned fix (**Untested** when written): a 3D-printed back about 3/8 inch (roughly 9.5 mm) deeper, or a spacer ring of the same height, with longer screws. Stretch only the depth in your CAD tool so the screw holes and port cutouts stay in place.
+- Print in PETG, ASA or ABS, not PLA, because PLA softens at around 55 to 60 degrees C.
+- A small post or foam pad inside the back can hold the board gently in place.
+
+**Cooling**
+
+- The board runs warm in the enclosure. We measured the SoC at 63 C and the GPU at 58 C once, which is below the throttle point (roughly 85 C on the RK3566), but that was not a heavy load.
+- Plan: a thin stick-on heatsink on the chip, with a vent hole in the back directly over it and a small 5V fan (about 30 mm) mounted on the outside over the hole.
+- The Zero 3W has no fan connector. A fan needs a 5V pin and a ground pin from the header, so check which pins your adapter leaves free.
+- Check temperature under a heavy load before deciding how much cooling you need:
+  ```
+  for z in /sys/class/thermal/thermal_zone*; do echo "$(cat $z/type): $(( $(cat $z/temp) / 1000 ))C"; done
+  ```
 
 ## Credits
 
