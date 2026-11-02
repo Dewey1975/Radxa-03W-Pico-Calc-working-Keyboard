@@ -1,0 +1,16 @@
+# PicoCalc speakers via 1-bit delta-sigma on I2S1 SDO3 (header pin 32)
+pcm_type.picocalc_dsm {
+	lib "@LIBDIR@/libasound_module_pcm_picocalc_dsm.so"
+}
+pcm.picocalc {
+	type picocalc_dsm
+	# gain: raise (e.g. 2.0) if it's too quiet, lower if loud parts crackle
+	gain 1.0
+	# swap: try true if sound is distorted/gritty
+	swap false
+	slave.pcm "hw:CARD=PicoCalcI2S,DEV=0"
+	hint {
+		show on
+		description "PicoCalc speakers (1-bit I2S)"
+	}
+}

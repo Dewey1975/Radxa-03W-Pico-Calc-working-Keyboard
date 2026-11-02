@@ -1,0 +1,2 @@
+# PicoCalc speaker boost (leveller + compressor + limiter). Press n in mpv to toggle.
+af=@dialog:lavfi=[dynaudnorm=f=150:g=15:p=0.9,acompressor=threshold=0.125:ratio=4:attack=5:release=150:makeup=5,alimiter=limit=0.85:level=false]

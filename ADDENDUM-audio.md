@@ -52,7 +52,26 @@ Things learned along the way:
 
 Pin 32 can also be the Radxa's **I2S1 SDO3** data line. The I2S hardware streams bits on its own steady clock, so instead of a timer poking the PWM, a small converter turns normal audio into a fast 1-bit stream (delta-sigma modulation). The PicoCalc's existing filter smooths that back into sound, the same way it does for the Pico's PWM.
 
-Pieces:
+#### Installing it
+
+Everything is in the [`audio/`](audio/) folder of this repo. Copy that folder to the PicoCalc (WinSCP works fine), then over SSH:
+
+```
+cd ~/audio
+bash install.sh --mpv
+sudo reboot
+```
+
+Leave off `--mpv` if you don't want the mpv speaker boost (see Loudness below). After the reboot:
+
+```
+aplay -l
+speaker-test -D picocalc -c 2 -r 48000 -t sine -f 440 -l 1
+```
+
+`aplay -l` should list **PicoCalcI2S**, and the test should play a clean tone. The installer checks the device tree first and stops without changing anything if the I2S pieces aren't there. It needs internet the first time to install `libasound2-dev` and `device-tree-compiler`, and it needs the kernel headers (`linux-headers-vendor-rk35xx` on Armbian).
+
+What it installs:
 
 1. **Device-tree overlay** `picocalc-i2s-dsm.dtbo` in `/boot/overlay-user/`. Turns on I2S1 and puts only its SDO3 line on pin 32. The PWM overlays are removed from `user_overlays` so nothing else drives that wire.
 2. **Stand-in codec driver** `picocalc_dsm_codec.ko` in `/lib/modules/$(uname -r)/extra/`. The I2S driver expects a codec on the other end of the link, and the PicoCalc has none, so this one just accepts the bits.

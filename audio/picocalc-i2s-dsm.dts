@@ -1,0 +1,40 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	/* I2S1: only its SDO3 data line (header pin 32) goes to a pin. */
+	fragment@0 {
+		target = <&i2s1_8ch>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2s1m2_sdo3>;
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			picocalc_dsm_codec: picocalc-dsm-codec {
+				compatible = "picocalc,dsm-codec";
+				#sound-dai-cells = <0>;
+				status = "okay";
+			};
+
+			picocalc-i2s-sound {
+				compatible = "simple-audio-card";
+				simple-audio-card,name = "PicoCalcI2S";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,mclk-fs = <256>;
+				status = "okay";
+
+				simple-audio-card,cpu {
+					sound-dai = <&i2s1_8ch>;
+				};
+				simple-audio-card,codec {
+					sound-dai = <&picocalc_dsm_codec>;
+				};
+			};
+		};
+	};
+};
