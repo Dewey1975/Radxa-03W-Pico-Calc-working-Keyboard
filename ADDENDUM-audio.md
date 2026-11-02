@@ -22,6 +22,10 @@ Items are labeled **Verified** (seen working on the real hardware), **Observed**
 
 Solder these on the back of the adapter, where the Radxa's header pins come through. Find the **square pad**: that's pin 1. Count from there.
 
+![Jumper wires on the ZeroCalc adapter, both sides of the board](images/picocalc_speaker_jumpers.png)
+
+*Drawn from the adapter's Gerber files, so the pad positions are exact. Use whichever view matches the side facing you.*
+
 | Wire | From | To | Notes |
 |---|---|---|---|
 | 1 | Pin 7 | Pin 33 | Insulated wire, run down the outside of the odd-numbered row so it doesn't touch the pins in between |
