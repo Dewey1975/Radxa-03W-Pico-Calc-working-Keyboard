@@ -51,9 +51,18 @@ Everything else can update normally, through the desktop's update button or with
 sudo apt update && sudo apt full-upgrade
 ```
 
-`apt` skips the locked packages and lists them as **"kept back"**. That's expected. It means the lock is working.
+**Check before you update.** This shows what an update would do, without installing anything:
 
-**Untested:** we locked the packages but have not yet run a full upgrade afterward on our unit. The lock itself is standard `apt` behavior.
+```
+sudo apt update
+echo "=== locked packages that would get installed (should be empty):"; apt-get -s full-upgrade | grep -E '^Inst (linux-(image|dtb|headers|u-boot)|armbian-(bsp|firmware))'
+```
+
+If anything prints under that line, stop: a locked package is about to change. If it's empty, go ahead and update.
+
+Other packages with `linux-` or `armbian-` in the name can show up in the update list, and they're fine. On our unit those were `linux-libc-dev` (compiling headers for programs, not the kernel), `armbian-config` and `armbian-imager`.
+
+**Verified:** on our unit, after locking, a simulated full upgrade (116 packages waiting) would install none of the six locked packages. At the time, none of the six had a newer version out, so we haven't yet seen `apt` skip a real kernel update. When one shows up, `apt` will list it as held back instead of installing it.
 
 ## Unlocking
 
