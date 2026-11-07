@@ -195,7 +195,7 @@ On the login screen, choose **Xfce Session**, **not** the Wayland variant. The X
   sudo nmcli connection modify "Wired connection 1" connection.autoconnect no
   ```
 - **Warm reboot vs. cold start:** the keyboard guide notes that a warm `sudo reboot` may not reset the PicoCalc keyboard controller. If the keys die after a change, do a clean `sudo poweroff`, cut all power, wait 20 seconds, and start again.
-- **Don't run a full system upgrade without a plan:** the patched keyboard module is built for one kernel version, so a kernel update will break it until you rebuild the module for the new `uname -r`. Installing individual programs is fine.
+- **Don't run a full system upgrade without a plan:** the patched keyboard module is built for one kernel version, so a kernel update will break it until you rebuild the module for the new `uname -r`. Installing individual programs is fine. The [updates addendum](ADDENDUM-updates.md) locks the kernel so the rest of the system can update safely.
 - **Chrome:** Google does not ship Chrome for ARM Linux. Use Chromium or Firefox. Browsers are slow to start on 2 GB of RAM.
 - **Keep the login manager:** if you remove GNOME later, keep `gdm3` or swap to a lighter login manager first, so you don't lose the ability to choose a session. We had **not** removed GNOME when this was written.
 

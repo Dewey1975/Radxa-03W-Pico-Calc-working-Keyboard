@@ -7,6 +7,8 @@
 > **Audio:** for speaker and headphone sound (one jumper wire plus a 1-bit I2S setup), see the [audio addendum](ADDENDUM-audio.md).
 >
 > **Game speed:** for smooth games on the panel (full 99 MHz screen clock, SPI polling mode, RetroArch vsync off), see the [screen speed addendum](ADDENDUM-screen-speed.md).
+>
+> **Updates:** to keep a system update from breaking the keyboard and audio, lock the kernel packages. See the [updates addendum](ADDENDUM-updates.md).
 
 This guide documents a working ClockworkPi PicoCalc build using:
 
@@ -189,7 +191,7 @@ This is why copying L0lus's I2C4/pins-27-and-28 keyboard overlay does not addres
 2. Do not install both the I2C3 test overlay and keyboard overlay at the same time.
 3. Do not use L0lus's original `picocalc_kbd.dts` with the Michael Mayer adapter. It targets I2C4 and the wrong physical pins for this PCB.
 4. Do not run the upstream `setup_picocalc.sh` blindly on an already working MIPI-DBI display installation. That script installs the upstream I2C4 keyboard overlay and the older `ili9488-fbtft.dts` display overlay.
-5. A kernel module is built for one kernel version. After a kernel upgrade, rebuild and reinstall `picocalc_kbd.ko` for the new `uname -r`.
+5. A kernel module is built for one kernel version. After a kernel upgrade, rebuild and reinstall `picocalc_kbd.ko` for the new `uname -r`. To stop that from happening by accident, see the [updates addendum](ADDENDUM-updates.md).
 6. Keep another SSH session or recovery SD card available when changing boot overlays.
 
 ## Step 1: Confirm the kernel build directory exists
