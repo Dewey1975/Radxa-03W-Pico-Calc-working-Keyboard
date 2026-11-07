@@ -5,6 +5,8 @@
 > **Update:** after the display and keyboard work, you may hit a desktop crash, DMA errors, or a black screen on X11. See the [addendum on getting a usable desktop on the 320x320 panel](ADDENDUM-desktop-and-display.md).
 >
 > **Audio:** for speaker and headphone sound (two jumper wires plus a 1-bit I2S setup), see the [audio addendum](ADDENDUM-audio.md).
+>
+> **Game speed:** for smooth games on the panel (SPI polling mode plus RetroArch vsync off), see the [screen speed addendum](ADDENDUM-screen-speed.md).
 
 This guide documents a working ClockworkPi PicoCalc build using:
 

@@ -1,0 +1,20 @@
+/*
+ * spi3-poll: run the PicoCalc panel's SPI bus (spi3, fe640000) in
+ * Rockchip polling mode instead of one interrupt per FIFO refill.
+ * Use together with spi3-nodma (DMA stays off).
+ * Radxa Zero 3W, Armbian rk35xx vendor kernel.
+ * Zeek the Alchemist
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "rockchip,rk3566";
+
+	fragment@0 {
+		target-path = "/spi@fe640000";
+		__overlay__ {
+			rockchip,poll-only;
+		};
+	};
+};

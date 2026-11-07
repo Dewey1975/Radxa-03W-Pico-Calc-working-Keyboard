@@ -310,6 +310,8 @@ RetroPie was already installed on this machine (installing it is not covered her
 
 **Result:** GBA Doom is playable but still slower than real hardware. Tomb Raider: Legend ran well, with dips to about 28 fps in busy scenes, where the original console would also slow down.
 
+> **Update:** the theory below turned out to be wrong. The panel already runs 16-bit at 99 MHz; the real limit was SPI interrupt overhead. See the [screen speed addendum](ADDENDUM-screen-speed.md) for the fix.
+
 **Our best explanation for the remaining limit** (**Untested**, treat as a lead): the ILI9488 panel takes 3 bytes per pixel over SPI. A full 320x320 frame at about 70 MHz tops out near 28 fps if every frame is sent as a full-screen update, which matches the 19 to 30 fps we saw before threading. If that is right, no emulator setting can raise the ceiling, and the only remaining levers are in the display driver.
 
 **Not tried (riskier):** re-enabling DMA for the panel's SPI bus (it caused the `Bad Desc` error flood in section 3), or running the SPI bus at a higher clock. Back up `/boot/armbianEnv.txt` before trying either.
