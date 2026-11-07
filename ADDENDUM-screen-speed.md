@@ -1,6 +1,6 @@
-# Addendum: Game speed on the 320x320 panel (SPI polling mode)
+# Addendum: Game speed on the 320x320 panel
 
-This addendum follows the [desktop and display addendum](ADDENDUM-desktop-and-display.md) (do its section 10, compositor off, first). It covers what was actually holding games back on the PicoCalc screen, and the two changes that fixed the stutter: putting the panel's SPI bus in polling mode, and turning RetroArch's vsync off.
+This addendum follows the [desktop and display addendum](ADDENDUM-desktop-and-display.md) (do its section 10, compositor off, first). It covers what was actually holding games back on the PicoCalc screen, and the three changes that fixed the stutter: running the screen at its full 99 MHz, putting the panel's SPI bus in polling mode, and turning RetroArch's vsync off.
 
 Items are labeled **Verified** (seen working on the real hardware), **Observed** (seen, cause is our best guess) or **Untested**.
 
@@ -14,31 +14,55 @@ Items are labeled **Verified** (seen working on the real hardware), **Observed**
 
 ## The short version
 
-Put [`screen/spi3-poll.dts`](screen/spi3-poll.dts) in your home folder on the PicoCalc (WinSCP works fine), then over SSH:
+You need `dtc` (`sudo apt install device-tree-compiler` if `dtc --version` says it's missing).
+
+**1.** Put [`screen/spi3-poll.dts`](screen/spi3-poll.dts) in your home folder on the PicoCalc (WinSCP works fine).
+
+**2.** Over SSH, back up your boot config and make the full-speed panel overlay (details in Change 1):
 
 ```
-sudo cp /boot/armbianEnv.txt /boot/armbianEnv.txt.bak-nodma
+sudo cp /boot/armbianEnv.txt /boot/armbianEnv.txt.bak-speed
+dtc -q -I dtb -O dts /boot/overlay-user/ili9488-panel-mipi-dbi-spi.dtbo | sed 's/spi-max-frequency = <0x[0-9a-f]*>/spi-max-frequency = <0x5e69ec0>/' > ~/ili9488-fast.dts
+sudo dtc -q -I dts -O dtb -o /boot/overlay-user/ili9488-fast.dtbo ~/ili9488-fast.dts
+sudo sed -i 's/ili9488-panel-mipi-dbi-spi/ili9488-fast/' /boot/armbianEnv.txt
+```
+
+**3.** Add the polling overlay (Change 2) and check the boot line:
+
+```
 sudo armbian-add-overlay ~/spi3-poll.dts && grep user_overlays /boot/armbianEnv.txt
-sudo poweroff                                   # then a full power-on, so the keyboard comes back
 ```
 
-After it's back up:
+The line should include `ili9488-fast`, `spi3-nodma` and `spi3-poll`, plus your keyboard (and audio, if you have it) overlays. Then:
 
 ```
+sudo poweroff
+```
+
+Do a full power-on, not a reboot, so the keyboard comes back.
+
+**4.** Once it's back up, check both took:
+
+```
+od -An -tu4 --endian=big /proc/device-tree/spi@fe640000/panel@0/spi-max-frequency
 dmesg | grep 'fe640000.spi: probed'
 ```
 
-It should say `poll=1`. Then do the RetroArch settings in "Change 2" below.
+The first should print `99000000`. The second should say `poll=1`.
+
+**5.** Do the RetroArch settings in Change 3 below.
 
 **Result** (**Verified**): GBA Doom went from stuttery to "damn near okay", and Tomb Raider: Legend, which used to dip to about 28 fps, plays smoothly.
+
+**To undo everything:** `sudo cp /boot/armbianEnv.txt.bak-speed /boot/armbianEnv.txt`, then power off and on.
 
 ## What was really slowing games down
 
 A read-only diagnostic during gameplay showed (**Verified**):
 
 - **16-bit color is already on.** The panel's init sequence sets `3a 55` (RGB565, 2 bytes per pixel), and colors look right. Nothing to gain there.
-- **The SPI clock is already maxed at 99 MHz.** The SPI block runs from a 198 MHz source and divides by even numbers only, so the possible speeds are 99, 49.5, 33 MHz and so on. **Anything you ask for under 99 MHz really runs at 49.5.** On our unit the panel overlay requests 99 MHz, and that's what it gets. At 99 MHz and 2 bytes per pixel, the wire can carry about 60 full 320x320 frames a second.
-- **The screen only got about a quarter of that:** 2.99 MB/s during GBA Doom, about 14.6 full frames a second.
+- **The SPI clock only has a few real speeds.** The SPI block runs from a 198 MHz source and divides by even numbers only, so the possible speeds are 99, 49.5, 33 MHz and so on. **Anything you ask for under 99 MHz really runs at 49.5.** The stock panel overlay asks for 70 MHz, so it runs at 49.5. Change 1 fixes that. At 99 MHz and 2 bytes per pixel, the wire can carry about 60 full 320x320 frames a second.
+- **Even at 99 MHz, the screen only got about a quarter of that:** 2.99 MB/s during GBA Doom, about 14.6 full frames a second.
 - **The real wall was interrupts.** With DMA off, the CPU refills the SPI controller's small buffer one interrupt at a time: **about 23,500 SPI interrupts a second.** The overhead between refills, not the clock, was the limit.
 
 That also explains the bad feel. The on-screen fps counter shows how fast the *emulator* runs. The screen was only updating about half that often, and unevenly, so frames were dropped.
@@ -54,11 +78,19 @@ dma-pl330 fe530000.dma-controller: pl330_submit_req:1726 Try increasing mcbufsz 
 
 The DMA engine builds a small program for each transfer, and it only has room for 256 bytes. The panel driver's big screen transfers need 263 to 279, so they get refused. `mcbufsz` is a fixed setting in the `pl330` DMA driver, not something an overlay can change, so this needs either a kernel change or a driver that splits transfers into smaller pieces. Neither is done yet (see "Not done yet"). Put `spi3-nodma` back afterwards.
 
-## Change 1: SPI polling mode (`spi3-poll` overlay)
+## Change 1: run the screen at 99 MHz (`ili9488-fast` overlay)
+
+L0lus's panel overlay, `ili9488-panel-mipi-dbi-spi`, asks for 70 MHz (`spi-max-frequency = <0x42c1d80>`). Because of the even-divider rule above, that lands on 49.5 MHz. The commands in step 2 of the short version make a copy named `ili9488-fast` with that one number changed to 99 MHz (`0x5e69ec0`), and switch the boot line over to the copy. Nothing else in the overlay changes, and L0lus's original file is left alone.
+
+**Verified:** `ili9488-fast` has run on our unit since October with a normal picture and no errors. The commands above produce a file byte-for-byte identical to the one on our unit. We did not benchmark this change on its own, so we have no separate before-and-after number for it.
+
+**To undo just this:** `sudo sed -i 's/ili9488-fast/ili9488-panel-mipi-dbi-spi/' /boot/armbianEnv.txt`, then power off and on.
+
+## Change 2: SPI polling mode (`spi3-poll` overlay)
 
 The Rockchip SPI driver in this vendor kernel has a polling mode (the boot log shows `poll=0` by default). In polling mode one CPU core keeps the SPI buffer topped up continuously instead of taking an interrupt every refill. It needs no DMA. The overlay is in [`screen/spi3-poll.dts`](screen/spi3-poll.dts); it only adds `rockchip,poll-only` to the panel's SPI bus.
 
-Install steps are in "The short version" above. Keep `spi3-nodma`: the two work together.
+Install steps are in the short version above. Keep `spi3-nodma`: the two work together.
 
 `user_overlays` on our unit afterwards:
 
@@ -66,7 +98,7 @@ Install steps are in "The short version" above. Keep `spi3-nodma`: the two work 
 user_overlays=ili9488-fast picocalc-kbd-i2c3 spi3-nodma picocalc-i2s-dsm spi3-poll
 ```
 
-(`ili9488-fast` is the name of our panel overlay, which requests 99 MHz. Keep whatever panel, keyboard and audio overlays your build uses and just add `spi3-poll` to the end.)
+(`picocalc-i2s-dsm` is the [audio](ADDENDUM-audio.md) overlay; leave it out if you haven't done audio.)
 
 **Measured during GBA Doom** (**Verified**, with `screen/picocalc-bench.sh`):
 
@@ -88,7 +120,7 @@ sudo sed -i 's/ spi3-poll//' /boot/armbianEnv.txt && grep user_overlays /boot/ar
 
 Then power off and on.
 
-## Change 2: RetroArch threaded video on, vsync off
+## Change 3: RetroArch threaded video on, vsync off
 
 This panel has no tear-sync (TE) signal, so vsync on only adds waiting. Threaded video lets the game keep its own speed. On our unit `video_vsync` had ended up back on `"true"`, and `video_threaded` was listed twice, so these commands clear out any old copies of both lines and write them once. Run as your normal user, **not** with `sudo`, so the file stays owned by you:
 

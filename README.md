@@ -6,7 +6,7 @@
 >
 > **Audio:** for speaker and headphone sound (one jumper wire plus a 1-bit I2S setup), see the [audio addendum](ADDENDUM-audio.md).
 >
-> **Game speed:** for smooth games on the panel (SPI polling mode plus RetroArch vsync off), see the [screen speed addendum](ADDENDUM-screen-speed.md).
+> **Game speed:** for smooth games on the panel (full 99 MHz screen clock, SPI polling mode, RetroArch vsync off), see the [screen speed addendum](ADDENDUM-screen-speed.md).
 
 This guide documents a working ClockworkPi PicoCalc build using:
 
