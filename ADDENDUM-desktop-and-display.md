@@ -121,7 +121,7 @@ sudo dmesg | grep -c "Bad Desc"
 
 We got `0`, and the SPI channels no longer appeared in the DMA summary.
 
-**Important:** this did **not** stop the GNOME apps-grid crash, so those were two separate problems. We did not measure whether CPU-driven SPI is slower in practice (**Untested**).
+**Important:** this did **not** stop the GNOME apps-grid crash, so those were two separate problems. Feeding the panel by CPU is slow until you also add the `spi3-poll` overlay; see the [screen speed addendum](ADDENDUM-screen-speed.md).
 
 **To undo:** remove `spi3-nodma` from the `user_overlays=` line in `/boot/armbianEnv.txt`, then reboot.
 
@@ -207,7 +207,8 @@ On the login screen, choose **Xfce Session**, **not** the Wayland variant. The X
 4. Skip GNOME's apps grid. Install XFCE (section 5).
 5. Add `20-picocalc.conf` (section 4) **before** logging in to any X11 session, so you don't see a black screen.
 6. Lower XFCE's DPI so the interface fits the panel (section 8).
-7. Keep a backup image of the card once everything works.
+7. For games, turn off XFCE's compositor (section 10), then follow the [screen speed addendum](ADDENDUM-screen-speed.md).
+8. Keep a backup image of the card once everything works.
 
 ## 8. Making things fit: the 640x640 trick does not work here, lowering DPI does
 
@@ -287,36 +288,17 @@ RetroPie was already installed on this machine (installing it is not covered her
 - Which core is the default for a system: `cat /opt/retropie/configs/gba/emulators.cfg`
 - Edit these as your normal user, not with `sudo sed -i`, because that can change the file's owner and stop RetroArch from saving to it.
 
-**What we found, in order:**
+**Turn off XFCE's window compositor** (**Verified**): the game then fills the screen and runs noticeably faster. XFCE saves this setting by itself.
 
-1. **Window not filling the screen, and slow** (**Verified** fix): turning off XFCE's window compositor made the game fill the screen and run noticeably faster. XFCE saves this setting by itself.
-   ```
-   DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus xfconf-query -c xfwm4 -p /general/use_compositing -n -t bool -s false
-   ```
-   To undo it, run the same command with `-s true`.
-2. **Heat is not the problem** (**Verified**): while a game was running, the SoC read 66 C, the GPU 61 C, and all four cores sat at the 1.8 GHz maximum. No throttling. The case does feel warm to the touch.
-3. **The emulator is not CPU-bound** (**Verified**): `top` during Doom showed RetroArch at only about 18% CPU, while a kernel worker (about 47%), Xorg (about 24%) and softirq time (about 21%) were busy. The game was waiting on the screen update path, not on emulation.
-4. **Turning off RetroArch shaders** (`video_shader_enable = "false"`) made no noticeable difference (**Observed**).
-5. **A smaller window did not help** (**Verified**): with `video_fullscreen = "false"` and `video_scale = "1.000000"`, plus `fps_show = "true"` for an on-screen counter, GBA Doom still ran at 19 to 30 fps. So the idea that fewer pixels would be faster was wrong in this setup.
-6. **Threaded video helped** (**Verified**): adding these lines to the global `retroarch.cfg` let the game keep its own speed and drop frames the panel can't show. Typical rate went to 33 to 36 fps, with a dip to about 28 in the busiest scene, and it felt faster.
-   ```
-   printf 'video_threaded = "true"\nvideo_vsync = "false"\n' >> /opt/retropie/configs/all/retroarch.cfg
-   ```
-7. **mGBA frame skip** (**Observed**): adding `mgba_frameskip = "auto"` to the core options file (with RetroArch closed) raised the worst scene from about 28.5 to about 32.5 fps. The option name and value are from memory; if your core version differs, it is simply ignored.
-   ```
-   cp /opt/retropie/configs/all/retroarch-core-options.cfg ~/core-options.bak
-   echo 'mgba_frameskip = "auto"' >> /opt/retropie/configs/all/retroarch-core-options.cfg
-   ```
+```
+DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus xfconf-query -c xfwm4 -p /general/use_compositing -n -t bool -s false
+```
 
-**Result:** GBA Doom is playable but still slower than real hardware. Tomb Raider: Legend ran well, with dips to about 28 fps in busy scenes, where the original console would also slow down.
+To undo it, run the same command with `-s true`.
 
-> **Update:** the theory below turned out to be wrong. The panel already runs 16-bit at 99 MHz; the real limit was SPI interrupt overhead. See the [screen speed addendum](ADDENDUM-screen-speed.md) for the fix.
+**Heat is not a problem** (**Verified**): while a game was running, the SoC read 66 C, the GPU 61 C, and all four cores sat at the 1.8 GHz maximum. No throttling.
 
-**Our best explanation for the remaining limit** (**Untested**, treat as a lead): the ILI9488 panel takes 3 bytes per pixel over SPI. A full 320x320 frame at about 70 MHz tops out near 28 fps if every frame is sent as a full-screen update, which matches the 19 to 30 fps we saw before threading. If that is right, no emulator setting can raise the ceiling, and the only remaining levers are in the display driver.
-
-**Not tried (riskier):** re-enabling DMA for the panel's SPI bus (it caused the `Bad Desc` error flood in section 3), or running the SPI bus at a higher clock. Back up `/boot/armbianEnv.txt` before trying either.
-
-**To undo the RetroArch changes:** keep backups before you edit (`cp /opt/retropie/configs/all/retroarch.cfg ~/retroarch-all.cfg.bak`) and copy them back.
+**For smooth games, follow the [screen speed addendum](ADDENDUM-screen-speed.md) next.** It has the two changes that fixed the stutter (SPI polling mode and RetroArch vsync off), with measurements.
 
 ## Credits
 

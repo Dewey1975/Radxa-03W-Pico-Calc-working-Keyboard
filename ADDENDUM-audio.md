@@ -1,6 +1,6 @@
 # Addendum: Speaker and headphone audio (Radxa Zero 3W, Armbian)
 
-This addendum covers getting sound out of the PicoCalc's own speaker and headphone jack with a Radxa Zero 3W on the Michael Mayer ZeroCalc adapter. It takes two short jumper wires and some software. The end result is clean sound on the speaker and the headphone jack, with the volume wheel still working.
+This addendum covers getting sound out of the PicoCalc's own speaker and headphone jack with a Radxa Zero 3W on the Michael Mayer ZeroCalc adapter. It takes one short jumper wire and some software. The end result is clean sound on the speaker and the headphone jack, with the volume wheel still working.
 
 Items are labeled **Verified** (seen working on the real hardware), **Observed** (seen, cause is our best guess) or **Untested**.
 
@@ -15,44 +15,34 @@ Items are labeled **Verified** (seen working on the real hardware), **Observed**
 
 - **Verified:** with no changes, the only sound card Linux sees is `rockchip-hdmi0`. Games and movies play into the micro-HDMI port.
 - **Verified:** the adapter is laid out like a Pi Zero adapter. Its Gerber files route the PicoCalc's audio lines to header **pin 32 (PWM_L)** and **pin 33 (PWM_R)**. On a Raspberry Pi those are PWM audio pins, so a Pi Zero 2W gets sound with one config line.
-- **Verified:** on the Radxa Zero 3W, pins 32 and 33 cannot do hardware PWM. The nearest usable PWM (PWM14_M0) comes out on **pin 7**, which the adapter leaves unconnected.
+- **Verified:** on the Radxa Zero 3W, pins 32 and 33 cannot do hardware PWM, so the Pi's one-line trick doesn't work. Pin 32 can be the Radxa's I2S data line instead, and that's what this setup uses.
 - From the PicoCalc schematic: only the **left** line (pin 32) reaches the speaker amp. The right line only goes to the headphone jack.
 
-## The jumper wires
+## The jumper wire
 
-Solder these on the back of the adapter, where the Radxa's header pins come through. Find the **square pad**: that's pin 1. Count from there.
+Solder it on the back of the adapter, where the Radxa's header pins come through. Find the **square pad**: that's pin 1. Count from there.
 
 ![Jumper wires on the ZeroCalc adapter, both sides of the board](images/picocalc_speaker_jumpers.png)
 
 *Drawn from the adapter's Gerber files, so the pad positions are exact. Use whichever view matches the side facing you.*
 
-| Wire | From | To | Notes |
-|---|---|---|---|
-| 1 | Pin 7 | Pin 33 | Insulated wire, run down the outside of the odd-numbered row so it doesn't touch the pins in between |
-| 2 | Pin 33 | Pin 32 | Short diagonal piece of wire. Pin 32 is one row up, not right beside 33 |
+| From | To | Notes |
+|---|---|---|
+| Pin 33 | Pin 32 | Short diagonal piece of wire. Pin 32 is one row up, not right beside 33 |
 
 > **Watch pin 34.** Pin 34 is **ground** and sits right beside pin 33. A solder bridge from 33 to 34 shorts the audio to ground. After soldering, a continuity check from 33 to 34 should **not** beep.
 
 A dab of hot glue over the joints works well for strain relief.
 
-**With the final software setup (below), pin 7 is no longer used.** Sound goes out pin 32, and the 32–33 bridge feeds the right side of the headphone jack. The pin 7 wire is harmless, so it can stay.
+Sound goes out pin 32 (left), and this wire carries it to pin 33 (right side of the headphone jack).
 
-## Software: what didn't work well, and what did
+> If you followed an older version of this page and also have a wire from **pin 7** to pin 33, it isn't used anymore. It's harmless, so it can stay.
 
-### First attempt: PWM driver on pin 7 (not recommended)
+## Software: 1-bit audio over I2S on pin 32 (Verified)
 
-A custom kernel driver fed the PWM on pin 7 one sample at a time from a timer. It worked, but it topped out at roughly 8-bit sound with audible hiss, even after several revisions.
+Pin 32 can also be the Radxa's **I2S1 SDO3** data line. The I2S hardware streams bits on its own steady clock, so a small converter turns normal audio into a fast 1-bit stream (delta-sigma modulation). The PicoCalc's existing filter smooths that back into sound, the same way it does for the Pico's PWM. No extra DAC or amp is needed.
 
-Things learned along the way:
-
-- **Verified:** `armbian-config`'s overlay menu fails on this image with "invalid overlay prefix". `armbianEnv.txt` says `overlay_prefix=rk35xx`, but the overlay files are named `rk3568-*.dtbo`. Load overlays by copying them into `/boot/overlay-user/` and adding them to `user_overlays=` instead. Don't change `overlay_prefix`, because the boot script also uses it to find a fixup script.
-- **Verified:** the Rockchip PWM driver only switches the PWM register clock on while it changes settings. A driver that writes the duty register every sample has to keep that clock on itself.
-
-### Final setup: 1-bit audio over I2S on pin 32 (Verified, recommended)
-
-Pin 32 can also be the Radxa's **I2S1 SDO3** data line. The I2S hardware streams bits on its own steady clock, so instead of a timer poking the PWM, a small converter turns normal audio into a fast 1-bit stream (delta-sigma modulation). The PicoCalc's existing filter smooths that back into sound, the same way it does for the Pico's PWM.
-
-#### Installing it
+### Installing it
 
 Everything is in the [`audio/`](audio/) folder of this repo. Copy that folder to the PicoCalc (WinSCP works fine), then over SSH:
 
@@ -73,7 +63,7 @@ speaker-test -D picocalc -c 2 -r 48000 -t sine -f 440 -l 1
 
 What it installs:
 
-1. **Device-tree overlay** `picocalc-i2s-dsm.dtbo` in `/boot/overlay-user/`. Turns on I2S1 and puts only its SDO3 line on pin 32. The PWM overlays are removed from `user_overlays` so nothing else drives that wire.
+1. **Device-tree overlay** `picocalc-i2s-dsm.dtbo` in `/boot/overlay-user/`. Turns on I2S1 and puts only its SDO3 line on pin 32. If any PWM overlays are listed in `user_overlays`, the installer removes them so nothing else drives that wire.
 2. **Stand-in codec driver** `picocalc_dsm_codec.ko` in `/lib/modules/$(uname -r)/extra/`. The I2S driver expects a codec on the other end of the link, and the PicoCalc has none, so this one just accepts the bits.
 3. **The 1-bit converter**, an ALSA plugin: `libasound_module_pcm_picocalc_dsm.so` in `/usr/lib/aarch64-linux-gnu/alsa-lib/`, configured in `/etc/alsa/conf.d/60-picocalc-dsm.conf` as the ALSA device `picocalc`. Each audio frame becomes 64 bits on the wire (48 kHz × 64 = 3.072 Mbit/s). Simulated in-band signal-to-noise is about 74 dB, roughly 12-bit sound. The output ceiling is set to 0.88 of full swing (tested stable; around 0.92 and up the modulator starts to wobble).
 4. **PipeWire sink** "PicoCalc Speakers", in `~/.config/pipewire/pipewire.conf.d/60-picocalc-dsm.conf`.
@@ -85,7 +75,9 @@ What it installs:
 user_overlays=ili9488-panel-mipi-dbi-spi picocalc-kbd-i2c3 spi3-nodma picocalc-i2s-dsm
 ```
 
-(Later display work may change the `spi3` entry. Keep whatever your display setup needs and just add `picocalc-i2s-dsm`.)
+Keep whatever your display setup needs and just add `picocalc-i2s-dsm`. If you also do the [screen speed fix](ADDENDUM-screen-speed.md), `spi3-poll` goes on the end too.
+
+**Good to know:** `armbian-config`'s overlay menu fails on this image with "invalid overlay prefix". Load overlays by copying them into `/boot/overlay-user/` and adding them to `user_overlays=` (the installer does this for you). Don't change `overlay_prefix`, because the boot script also uses it.
 
 ### PipeWire sink config (fixes crackling and pause pops)
 
@@ -153,8 +145,6 @@ wpctl get-volume <number>     # check a sink or stream volume
 ```
 
 Bluetooth and USB audio still work alongside this. Pair or plug in, find the device under Sinks in `wpctl status`, and `wpctl set-default` to it. Plugging into the headphone jack mutes the speaker, the same as on stock hardware.
-
-Boot config backups made along the way: `/boot/armbianEnv.txt.before-pwm`, `.before-audio`, `.before-i2s`.
 
 ## Ideas not done yet (Untested)
 

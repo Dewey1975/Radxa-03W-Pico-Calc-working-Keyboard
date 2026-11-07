@@ -1,6 +1,6 @@
 # Addendum: Game speed on the 320x320 panel (SPI polling mode)
 
-This addendum follows section 10 of the [desktop and display addendum](ADDENDUM-desktop-and-display.md). It covers what was actually holding games back on the PicoCalc screen, and the two changes that fixed the stutter: putting the panel's SPI bus in polling mode, and turning RetroArch's vsync off.
+This addendum follows the [desktop and display addendum](ADDENDUM-desktop-and-display.md) (do its section 10, compositor off, first). It covers what was actually holding games back on the PicoCalc screen, and the two changes that fixed the stutter: putting the panel's SPI bus in polling mode, and turning RetroArch's vsync off.
 
 Items are labeled **Verified** (seen working on the real hardware), **Observed** (seen, cause is our best guess) or **Untested**.
 
@@ -28,13 +28,13 @@ After it's back up:
 dmesg | grep 'fe640000.spi: probed'
 ```
 
-It should say `poll=1`. Then set RetroArch's vsync off (see "Change 2" below).
+It should say `poll=1`. Then do the RetroArch settings in "Change 2" below.
 
 **Result** (**Verified**): GBA Doom went from stuttery to "damn near okay", and Tomb Raider: Legend, which used to dip to about 28 fps, plays smoothly.
 
-## What the old theory got wrong
+## What was really slowing games down
 
-Section 10 of the display addendum guessed that the panel takes 3 bytes per pixel and the clock was the ceiling. A read-only diagnostic during gameplay showed otherwise (**Verified**):
+A read-only diagnostic during gameplay showed (**Verified**):
 
 - **16-bit color is already on.** The panel's init sequence sets `3a 55` (RGB565, 2 bytes per pixel), and colors look right. Nothing to gain there.
 - **The SPI clock is already maxed at 99 MHz.** The SPI block runs from a 198 MHz source and divides by even numbers only, so the possible speeds are 99, 49.5, 33 MHz and so on. **Anything you ask for under 99 MHz really runs at 49.5.** On our unit the panel overlay requests 99 MHz, and that's what it gets. At 99 MHz and 2 bytes per pixel, the wire can carry about 60 full 320x320 frames a second.
@@ -88,18 +88,18 @@ sudo sed -i 's/ spi3-poll//' /boot/armbianEnv.txt && grep user_overlays /boot/ar
 
 Then power off and on.
 
-## Change 2: RetroArch vsync off
+## Change 2: RetroArch threaded video on, vsync off
 
-This panel has no tear-sync (TE) signal, so vsync on only adds waiting. On our unit `video_vsync` had ended up back on `"true"`, and `video_threaded` was listed twice. Run as your normal user, **not** with `sudo`, so the file stays owned by you:
+This panel has no tear-sync (TE) signal, so vsync on only adds waiting. Threaded video lets the game keep its own speed. On our unit `video_vsync` had ended up back on `"true"`, and `video_threaded` was listed twice, so these commands clear out any old copies of both lines and write them once. Run as your normal user, **not** with `sudo`, so the file stays owned by you:
 
 ```
 cp /opt/retropie/configs/all/retroarch.cfg ~/retroarch-all.cfg.bak-poll
-sed -i 's/^video_vsync = .*/video_vsync = "false"/' /opt/retropie/configs/all/retroarch.cfg
-awk '!(/^video_threaded =/ && seen++)' /opt/retropie/configs/all/retroarch.cfg > /tmp/ra.cfg && cat /tmp/ra.cfg > /opt/retropie/configs/all/retroarch.cfg
-grep -E '^video_(vsync|threaded|driver)' /opt/retropie/configs/all/retroarch.cfg
+sed -i '/^video_vsync =/d; /^video_threaded =/d' /opt/retropie/configs/all/retroarch.cfg
+printf 'video_threaded = "true"\nvideo_vsync = "false"\n' >> /opt/retropie/configs/all/retroarch.cfg
+grep -E '^video_(vsync|threaded)' /opt/retropie/configs/all/retroarch.cfg
 ```
 
-It should show `video_driver = "gl"`, `video_threaded = "true"` once, and `video_vsync = "false"`.
+It should show `video_threaded = "true"` and `video_vsync = "false"`, once each.
 
 **To undo:** `cp ~/retroarch-all.cfg.bak-poll /opt/retropie/configs/all/retroarch.cfg`
 
