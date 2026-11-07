@@ -62,7 +62,7 @@ If anything prints under that line, stop: a locked package is about to change. I
 
 Other packages with `linux-` or `armbian-` in the name can show up in the update list, and they're fine. On our unit those were `linux-libc-dev` (compiling headers for programs, not the kernel), `armbian-config` and `armbian-imager`.
 
-**Verified:** on our unit, after locking, a simulated full upgrade (116 packages waiting) would install none of the six locked packages. At the time, none of the six had a newer version out, so we haven't yet seen `apt` skip a real kernel update. When one shows up, `apt` will list it as held back instead of installing it.
+**Verified:** on our unit, after locking, a simulated full upgrade (116 packages waiting) would install none of the six locked packages. At the time, none of the six had a newer version out, so we haven't yet seen `apt` skip a real kernel update. Skipping locked packages is standard `apt` behavior, and the check above will catch it if it ever fails.
 
 ## Unlocking
 
