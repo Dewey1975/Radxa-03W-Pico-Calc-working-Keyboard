@@ -1,4 +1,4 @@
-# Radxa Zero 3W in a ClockworkPi PicoCalc
+# PICOCALC/RADXA03W
 
 ## Working display and keyboard with the Michael Mayer ZeroCalc adapter, plus desktop and screen-size fixes
 
